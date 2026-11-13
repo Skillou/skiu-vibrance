@@ -154,6 +154,19 @@ async fn pick_exe(app: AppHandle) -> Option<Picked> {
     .flatten()
 }
 
+/// Icone d'un executable (data URL PNG), ou `None` si introuvable.
+#[tauri::command]
+async fn exe_icon(path: String) -> Option<String> {
+    let p = std::path::Path::new(&path);
+    if !p.is_absolute() || !p.is_file() {
+        return None;
+    }
+    tauri::async_runtime::spawn_blocking(move || skiu_win::exe_icon_data_url(&path))
+        .await
+        .ok()
+        .flatten()
+}
+
 #[tauri::command]
 fn set_autostart(app: AppHandle, enabled: bool) -> Result<bool, String> {
     let manager = app.autolaunch();
@@ -174,12 +187,16 @@ fn quit_app(app: AppHandle) {
 /// Surveille la fenetre au premier plan et enregistre les reglages modifies.
 fn spawn_monitor(app: AppHandle, shared: Arc<Shared>) {
     std::thread::spawn(move || loop {
-        let (runtime, changed, to_save, paused) = {
+        let (runtime, changed, to_save, paused, learned) = {
             let mut e = shared.lock();
             let now = Instant::now();
             let (rt, changed) = e.tick(now);
-            (rt, changed, e.take_dirty(now), e.settings().paused)
+            let learned = e.take_learned().then(|| e.settings().clone());
+            (rt, changed, e.take_dirty(now), e.settings().paused, learned)
         };
+        if let Some(s) = learned {
+            let _ = app.emit("settings", &s);
+        }
         if changed {
             let _ = app.emit("runtime", &runtime);
             refresh_tray(&app, &runtime, paused);
@@ -282,6 +299,7 @@ pub fn run() {
             set_preview,
             list_windows,
             pick_exe,
+            exe_icon,
             set_autostart,
             quit_app
         ])

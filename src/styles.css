@@ -151,6 +151,9 @@ p { color: var(--text2); line-height: 1.45; }
 .game.active { box-shadow: var(--shadow), var(--hl), 0 0 0 1.5px var(--warm); }
 .game-logo { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; font-weight: 700; font-size: 18px; color: #fff; background: linear-gradient(135deg, var(--warm2), var(--warm)); flex: none; }
 .game-logo.sm { width: 34px; height: 34px; border-radius: 10px; font-size: 14px; }
+.game-logo.has-icon { background: var(--accent-soft); box-shadow: var(--hl); animation: fade .25s both; }
+.game-logo.has-icon img { width: 75%; height: 75%; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0,0,0,.18)); }
+.game.off .game-logo.has-icon img { filter: grayscale(1); }
 .game-main { width: 230px; flex: none; min-width: 0; }
 .game-main code { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 .game-title { display: flex; align-items: center; gap: 8px; min-width: 0; } .game-title h3 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

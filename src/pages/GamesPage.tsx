@@ -1,6 +1,7 @@
 import { FolderOpen, Gamepad2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { AppIcon } from "../components/AppIcon";
 import { Slider } from "../components/Slider";
 import { Switch } from "../components/Switch";
 import type { Game, GpuInfo, Runtime, Settings, WindowInfo } from "../types";
@@ -144,7 +145,7 @@ export function GamesPage({ settings, gpu, runtime, patch, toast }: Props) {
             const value = g.percent ?? settings.gameDefault;
             return (
               <article key={g.id} className={`glass game${active ? " active" : ""}${g.enabled ? "" : " off"}`}>
-                <div className="game-logo">{g.name.slice(0, 1).toUpperCase()}</div>
+                <AppIcon path={g.path} name={g.name} />
                 <div className="game-main">
                   <div className="game-title">
                     <GameName name={g.name} onRename={(name) => update(g.id, { name })} />
@@ -214,7 +215,7 @@ export function GamesPage({ settings, gpu, runtime, patch, toast }: Props) {
               )}
               {candidates.map((w) => (
                 <button key={w.exe} className="sheet-row" onClick={() => add(displayName(w), w.exe, w.path)}>
-                  <span className="game-logo sm">{w.exe.slice(0, 1).toUpperCase()}</span>
+                  <AppIcon path={w.path} name={w.exe} small />
                   <span className="sheet-row-text">
                     <strong>{w.title || w.exe}</strong>
                     <code>{w.exe}</code>

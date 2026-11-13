@@ -5,7 +5,7 @@ saturées en jeu, niveau normal sur le bureau. Inspiré de vibranceGUI, réécri
 (Tauri 2 + React + Rust).
 
 ## Ce que ça fait
-- Niveau **Bureau** et niveau **Jeu par défaut**, plus un niveau personnalisé par jeu (renommable).
+- Niveau **Bureau** et niveau **Jeu par défaut**, plus un niveau personnalisé par jeu (renommable, avec la vraie icône de son `.exe`).
 - Détection du jeu au premier plan (toutes les 300 ms), sur l'écran du jeu seulement ou sur tous les écrans.
 - **Auto-correction** : toutes les 3 s, le niveau réel du pilote est relu et réappliqué si un jeu
   (plein écran exclusif), un changement de résolution ou le Panneau NVIDIA l'a modifié.
@@ -37,7 +37,7 @@ l'installateur et l'attache à un brouillon de release.
 npm install
 npm run tauri dev                 # application complète
 npm run dev                       # interface seule dans le navigateur (mode démo)
-cd src-tauri && cargo test -p skiu-core   # tests de la logique (26 tests)
+cd src-tauri && cargo test -p skiu-core   # tests de la logique (27 tests ; `cargo test -p skiu-win` sous Windows : 3 de plus)
 ```
 La CI (GitHub Actions) vérifie à chaque push : build de l'interface, `cargo fmt`, tests, clippy et
 les types Windows de `skiu-win`.

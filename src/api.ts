@@ -47,6 +47,8 @@ function demoRuntime(): Runtime {
   return { ...rt, appliedPercent: rt.previewing ? s.gameDefault : s.desktop };
 }
 
+const iconCache = new Map<string, Promise<string | null>>();
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export const api = {
@@ -78,6 +80,16 @@ export const api = {
   async pickExe(): Promise<Picked | null> {
     if (isTauri) return invoke<Picked | null>("pick_exe");
     return { name: "Fortnite", exe: "FortniteClient-Win64-Shipping.exe", path: "C:\\Games\\Fortnite" };
+  },
+  /** Icône d'un .exe en data URL PNG (mise en cache : une seule extraction par chemin). */
+  exeIcon(path: string): Promise<string | null> {
+    const key = path.toLowerCase();
+    let p = iconCache.get(key);
+    if (!p) {
+      p = isTauri ? invoke<string | null>("exe_icon", { path }).catch(() => null) : Promise.resolve(null);
+      iconCache.set(key, p);
+    }
+    return p;
   },
   async setAutostart(enabled: boolean): Promise<boolean> {
     if (isTauri) return invoke<boolean>("set_autostart", { enabled });

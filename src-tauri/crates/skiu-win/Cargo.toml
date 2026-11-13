@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 skiu-core = { path = "../skiu-core" }
+png = "0.18"
 windows-sys = { version = "0.59", features = [
   "Win32_Foundation",
   "Win32_Graphics_Dwm",

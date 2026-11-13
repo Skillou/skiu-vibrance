@@ -3202,6 +3202,7 @@ dependencies = [
 name = "skiu-win"
 version = "1.1.0"
 dependencies = [
+ "png",
  "skiu-core",
  "windows-sys 0.59.0",
 ]

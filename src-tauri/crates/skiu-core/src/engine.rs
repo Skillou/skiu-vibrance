@@ -28,6 +28,7 @@ pub struct Engine {
     dirty_at: Option<Instant>,
     last_error: Option<String>,
     last_resync: Option<Instant>,
+    settings_learned: bool,
     /// Plage reellement pilotable (en %), si le pilote est disponible.
     range: Option<(i32, i32)>,
 }
@@ -54,6 +55,7 @@ impl Engine {
             dirty_at: None,
             last_error: None,
             last_resync: None,
+            settings_learned: false,
             range,
         };
         let before = me.settings.clone();
@@ -101,7 +103,16 @@ impl Engine {
         }
     }
 
-    pub fn update_settings(&mut self, settings: Settings, now: Instant) -> Runtime {
+    pub fn update_settings(&mut self, mut settings: Settings, now: Instant) -> Runtime {
+        // L'interface peut envoyer une copie anterieure a un chemin appris : on le conserve.
+        for g in settings.games.iter_mut().filter(|g| g.path.is_none()) {
+            g.path = self
+                .settings
+                .games
+                .iter()
+                .find(|o| o.exe.eq_ignore_ascii_case(&g.exe))
+                .and_then(|o| o.path.clone());
+        }
         self.settings = settings;
         self.normalize();
         self.dirty_at = Some(now);
@@ -144,6 +155,12 @@ impl Engine {
     /// Ecriture immediate (fermeture de l'application).
     pub fn flush(&mut self) -> Option<Settings> {
         self.dirty_at.take().map(|_| self.settings.clone())
+    }
+
+    /// Vrai (une seule fois) si le moteur a complete les reglages de lui-meme
+    /// (chemin d'un jeu appris) : l'interface doit alors etre mise a jour.
+    pub fn take_learned(&mut self) -> bool {
+        std::mem::take(&mut self.settings_learned)
     }
 
     /// Remet le niveau « bureau » partout (fermeture de l'application).
@@ -190,12 +207,18 @@ impl Engine {
             return None;
         }
         let fg = self.sys.foreground()?;
-        let game = self
+        let entry = self
             .settings
             .games
-            .iter()
-            .find(|g| g.enabled && g.exe.eq_ignore_ascii_case(&fg.exe))?
-            .clone();
+            .iter_mut()
+            .find(|g| g.enabled && g.exe.eq_ignore_ascii_case(&fg.exe))?;
+        // Jeu ajoute sans chemin : on retient celui du processus (sert a afficher son icone).
+        if entry.path.is_none() && fg.path.is_some() {
+            entry.path = fg.path.clone();
+            self.dirty_at = Some(now);
+            self.settings_learned = true;
+        }
+        let game = entry.clone();
         let percent = game.percent.unwrap_or(self.settings.game_default);
         Some(GameHit {
             game: Some(game),
@@ -606,6 +629,32 @@ mod tests {
         );
         assert_eq!(e.settings().desktop, 50);
         assert!(e.take_dirty(Instant::now() + SAVE_DEBOUNCE).is_some());
+    }
+
+    #[test]
+    fn learns_game_path_and_keeps_it_on_stale_ui_update() {
+        let (mut e, log) = setup(vec![game("cs2.exe", None)]);
+        let stale_ui_copy = e.settings().clone();
+        log.lock().unwrap().fg = Some(Fg {
+            exe: "cs2.exe".into(),
+            path: Some(r"D:\Steam\cs2.exe".into()),
+            title: "t".into(),
+            monitor: None,
+        });
+        e.tick(Instant::now());
+        assert!(e.take_learned());
+        assert!(!e.take_learned(), "signale une seule fois");
+        assert_eq!(
+            e.settings().games[0].path.as_deref(),
+            Some(r"D:\Steam\cs2.exe")
+        );
+
+        // L'interface renvoie sa vieille copie (sans chemin) : le chemin appris reste.
+        e.update_settings(stale_ui_copy, Instant::now());
+        assert_eq!(
+            e.settings().games[0].path.as_deref(),
+            Some(r"D:\Steam\cs2.exe")
+        );
     }
 
     #[test]

@@ -1,4 +1,5 @@
 import { Eye, Gamepad2, Monitor, PauseCircle, Sparkles, TriangleAlert } from "lucide-react";
+import { AppIcon } from "../components/AppIcon";
 import { VFader } from "../components/VFader";
 import type { GpuInfo, Runtime, Settings } from "../types";
 
@@ -12,6 +13,7 @@ interface Props {
 
 export function VibrancePage({ settings, gpu, runtime, patch, preview }: Props) {
   const inGame = !!runtime.activeGameName && !settings.paused;
+  const activeGame = settings.games.find((g) => g.id === runtime.activeGameId);
   const status = settings.paused
     ? { icon: <PauseCircle size={20} />, title: "Bascule en pause", sub: "Le niveau Bureau reste appliqué partout." }
     : runtime.previewing
@@ -53,7 +55,11 @@ export function VibrancePage({ settings, gpu, runtime, patch, preview }: Props) 
       )}
 
       <section className={`glass hero${inGame || runtime.previewing ? " live" : ""}`}>
-        <span className="hero-icon">{status.icon}</span>
+        {inGame && !runtime.previewing && activeGame?.path ? (
+          <AppIcon path={activeGame.path} name={activeGame.name} />
+        ) : (
+          <span className="hero-icon">{status.icon}</span>
+        )}
         <div className="hero-text">
           <div className="eyebrow">État actuel</div>
           <h2>{status.title}</h2>
