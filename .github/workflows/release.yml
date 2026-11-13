@@ -1,0 +1,35 @@
+name: Release
+
+# Pousser un tag `v1.2.3` construit l'installateur Windows et cree un brouillon de release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: cargo test --workspace
+        working-directory: src-tauri
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Skiu Vibrance ${{ github.ref_name }}
+          releaseBody: Installateur Windows (NSIS). Telecharge le fichier `.exe` ci-dessous.
+          releaseDraft: true

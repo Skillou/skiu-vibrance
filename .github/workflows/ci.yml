@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Tests & verifications
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - name: Interface (TypeScript + build)
+        run: npm run build
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Format
+        working-directory: src-tauri
+        run: cargo fmt --all --check
+      - name: Tests de la logique (skiu-core)
+        working-directory: src-tauri
+        run: cargo test -p skiu-core
+      - name: Clippy skiu-core
+        working-directory: src-tauri
+        run: cargo clippy -p skiu-core --all-targets -- -D warnings
+      - name: Verification des types Windows (skiu-win)
+        working-directory: src-tauri
+        env:
+          RUSTFLAGS: --cfg skiu_typecheck
+        run: cargo check -p skiu-win

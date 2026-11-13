@@ -1,0 +1,27 @@
+# Dependances et sorties de build
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Journaux et fichiers temporaires
+*.log
+npm-debug.log*
+*.tmp
+*.bak
+
+# Editeurs / systeme
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.claude/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets eventuels (signature des mises a jour, etc.)
+.env
+.env.*
+*.key
+*.pem
