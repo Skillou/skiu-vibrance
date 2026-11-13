@@ -19,6 +19,7 @@ export interface Settings {
   restoreOnExit: boolean;
   closeToTray: boolean;
   theme: Theme;
+  autoUpdate: boolean;
 }
 
 export interface GpuInfo {

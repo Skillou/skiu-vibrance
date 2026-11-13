@@ -1,10 +1,11 @@
-import { Gamepad2, Minus, Settings2, SlidersHorizontal, Square, X } from "lucide-react";
+import { ArrowDownCircle, Gamepad2, Minus, Settings2, SlidersHorizontal, Square, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, isTauri, win } from "./api";
 import { GamesPage } from "./pages/GamesPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { VibrancePage } from "./pages/VibrancePage";
 import type { AppState, Runtime, Settings } from "./types";
+import { useUpdater } from "./updater";
 
 type Tab = "vibrance" | "games" | "settings";
 
@@ -22,6 +23,7 @@ export function App() {
   const timer = useRef<number>();
   const toastTimer = useRef<number>();
   const latest = useRef<Settings | null>(null);
+  const updater = useUpdater(!!settings?.autoUpdate);
 
   const toast = useCallback((m: string) => {
     setToastMsg(m);
@@ -96,6 +98,18 @@ export function App() {
     [toast],
   );
 
+  // Menu de la zone de notification : « Rechercher les mises à jour… »
+  const checkUpdate = updater.checkNow;
+  useEffect(() => {
+    const off = api.onCheckUpdate(() => {
+      setTab("settings");
+      checkUpdate(false);
+    });
+    return () => {
+      off.then((f) => f());
+    };
+  }, [checkUpdate]);
+
   // Ctrl+1/2/3 : navigation rapide entre les onglets.
   useEffect(() => {
     const tabs: Tab[] = ["vibrance", "games", "settings"];
@@ -151,6 +165,15 @@ export function App() {
               </button>
             ))}
           </nav>
+          {(updater.state.status === "available" || updater.state.status === "downloading" || updater.state.status === "installing") && (
+            <button className="update-pill" onClick={() => setTab("settings")}>
+              <ArrowDownCircle size={16} />
+              <span>
+                <strong>Mise à jour {updater.state.version}</strong>
+                <small>{updater.state.status === "available" ? "Cliquer pour installer" : "Installation…"}</small>
+              </span>
+            </button>
+          )}
           <div className="side-status">
             <span className={`dot ${state.gpu.available ? (settings.paused ? "warn" : "ok") : "bad"}`} />
             <div>
@@ -163,7 +186,7 @@ export function App() {
         <main>
           {tab === "vibrance" && <VibrancePage settings={settings} gpu={state.gpu} runtime={runtime} patch={patch} preview={preview} />}
           {tab === "games" && <GamesPage settings={settings} gpu={state.gpu} runtime={runtime} patch={patch} toast={toast} />}
-          {tab === "settings" && <SettingsPage state={state} settings={settings} patch={patch} autostart={autostart} setAutostart={setAutostart} />}
+          {tab === "settings" && <SettingsPage state={state} settings={settings} patch={patch} autostart={autostart} setAutostart={setAutostart} updater={updater} />}
         </main>
       </div>
 

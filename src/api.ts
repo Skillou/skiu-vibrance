@@ -18,6 +18,7 @@ const demo = {
       restoreOnExit: true,
       closeToTray: true,
       theme: "auto",
+      autoUpdate: true,
       games: [
         { id: "1", name: "Counter-Strike 2", exe: "cs2.exe", percent: 100, enabled: true },
         { id: "2", name: "VALORANT", exe: "VALORANT-Win64-Shipping.exe", percent: 90, enabled: true },
@@ -37,7 +38,7 @@ const demo = {
     },
     runtime: { previewing: false, appliedPercent: 55, activeGameId: null, activeGameName: null },
     autostart: false,
-    version: "1.1.0",
+    version: "1.2.0",
   } as AppState,
 };
 
@@ -99,6 +100,10 @@ export const api = {
   async onRuntime(cb: (r: Runtime) => void): Promise<() => void> {
     if (!isTauri) return () => {};
     return listen<Runtime>("runtime", (e) => cb(e.payload));
+  },
+  async onCheckUpdate(cb: () => void): Promise<() => void> {
+    if (!isTauri) return () => {};
+    return listen("check-update", () => cb());
   },
   async onSettings(cb: (s: Settings) => void): Promise<() => void> {
     if (!isTauri) return () => {};

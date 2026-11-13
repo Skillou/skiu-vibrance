@@ -219,9 +219,16 @@ fn build_tray(app: &AppHandle, shared: &Arc<Shared>) -> tauri::Result<()> {
         paused,
         None::<&str>,
     )?;
+    let update = MenuItem::with_id(
+        app,
+        "update",
+        "Rechercher les mises à jour…",
+        true,
+        None::<&str>,
+    )?;
     let sep = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", "Quitter", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &pause, &sep, &quit])?;
+    let menu = Menu::with_items(app, &[&open, &pause, &update, &sep, &quit])?;
     if let Ok(mut slot) = shared.pause_item.lock() {
         *slot = Some(pause);
     }
@@ -238,6 +245,10 @@ fn build_tray(app: &AppHandle, shared: &Arc<Shared>) -> tauri::Result<()> {
                     s.paused = !s.paused;
                     apply_settings(app, &shared, s, true);
                 }
+            }
+            "update" => {
+                show_main(app);
+                let _ = app.emit("check-update", ());
             }
             "quit" => app.exit(0),
             _ => {}
@@ -265,6 +276,8 @@ pub fn run() {
             show_main(app)
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),

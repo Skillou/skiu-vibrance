@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Skiu Vibrance",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "identifier": "fr.ceasolutions.skiuvibrance",
   "build": {
     "frontendDist": "../dist",
@@ -31,7 +31,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "publisher": "CeA Solutions",
     "shortDescription": "Vibrance NVIDIA automatique par jeu",
     "longDescription": "Bascule automatiquement la vibrance numerique NVIDIA selon le jeu au premier plan.",
@@ -47,8 +49,23 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["French", "English"],
+        "languages": [
+          "French",
+          "English"
+        ],
         "displayLanguageSelector": false
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDBDQTc3N0QxNEM3NTAwRDAKUldUUUFIVk0wWGVuREYydGtWanhnY21jdzRORVhpN2l2bEZTUThSRjJkL043T0t0ekhoUEx3S1MK",
+      "endpoints": [
+        "https://github.com/Skillou/skiu-vibrance/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

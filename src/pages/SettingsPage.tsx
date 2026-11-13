@@ -1,7 +1,8 @@
-import { Cpu, Layers, Monitor, Moon, Power, Sun, SunMoon, Tv } from "lucide-react";
+import { CheckCircle2, Cpu, Download, Layers, Loader2, Monitor, Moon, RefreshCw, Sun, SunMoon, TriangleAlert, Tv } from "lucide-react";
 import { Segmented } from "../components/Segmented";
 import { Switch } from "../components/Switch";
 import type { AppState, Settings } from "../types";
+import type { Updater } from "../updater";
 
 interface Props {
   state: AppState;
@@ -9,6 +10,7 @@ interface Props {
   patch: (p: Partial<Settings>) => void;
   autostart: boolean;
   setAutostart: (v: boolean) => void;
+  updater: Updater;
 }
 
 function Row({ title, desc, children }: { title: string; desc: string; children: React.ReactNode }) {
@@ -23,7 +25,74 @@ function Row({ title, desc, children }: { title: string; desc: string; children:
   );
 }
 
-export function SettingsPage({ state, settings, patch, autostart, setAutostart }: Props) {
+function UpdateSection({ version, settings, patch, updater }: { version: string; settings: Settings; patch: Props["patch"]; updater: Updater }) {
+  const { state: u, checkNow, install } = updater;
+  const busy = u.status === "checking" || u.status === "downloading" || u.status === "installing";
+  const pct = u.progress != null ? Math.round(u.progress * 100) : null;
+  const since = u.lastCheck ? u.lastCheck.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : null;
+
+  let line: React.ReactNode;
+  switch (u.status) {
+    case "checking":
+      line = <><Loader2 size={14} className="spin" /> Recherche en cours…</>;
+      break;
+    case "upToDate":
+      line = <><CheckCircle2 size={14} className="ok" /> Tu as la dernière version{since ? ` (vérifié à ${since})` : ""}.</>;
+      break;
+    case "available":
+      line = <><Download size={14} className="accent" /> Version {u.version} disponible.</>;
+      break;
+    case "downloading":
+      line = <><Loader2 size={14} className="spin" /> Téléchargement{pct != null ? ` ${pct} %` : "…"}</>;
+      break;
+    case "installing":
+      line = <><Loader2 size={14} className="spin" /> Installation, l'application va redémarrer…</>;
+      break;
+    case "error":
+      line = <><TriangleAlert size={14} className="bad" /> {u.error}</>;
+      break;
+    default:
+      line = <>Version installée : {version}</>;
+  }
+
+  return (
+    <section className="glass group">
+      <div className="row">
+        <div>
+          <strong>Mises à jour</strong>
+          <p className="update-line">{line}</p>
+        </div>
+        <div className="row-ctl">
+          {u.status === "available" ? (
+            <button className="btn primary" onClick={install}>
+              <Download size={16} /> Installer et redémarrer
+            </button>
+          ) : (
+            <button className="btn" onClick={() => checkNow(false)} disabled={busy}>
+              <RefreshCw size={16} className={u.status === "checking" ? "spin" : ""} /> Rechercher
+            </button>
+          )}
+        </div>
+      </div>
+      {(u.status === "downloading" || u.status === "installing") && (
+        <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct ?? undefined}>
+          <i style={{ width: `${pct ?? 100}%` }} className={pct == null ? "indeterminate" : ""} />
+        </div>
+      )}
+      {u.status === "available" && u.notes && (
+        <div className="release-notes">
+          <span className="eyebrow">Nouveautés {u.version}</span>
+          <p>{u.notes}</p>
+        </div>
+      )}
+      <Row title="Vérifier automatiquement" desc="Au démarrage puis toutes les 6 heures. Rien n'est installé sans ton accord.">
+        <Switch on={settings.autoUpdate} onChange={(autoUpdate) => patch({ autoUpdate })} label="Vérifier automatiquement les mises à jour" />
+      </Row>
+    </section>
+  );
+}
+
+export function SettingsPage({ state, settings, patch, autostart, setAutostart, updater }: Props) {
   const g = state.gpu;
   return (
     <div className="page">
@@ -72,6 +141,8 @@ export function SettingsPage({ state, settings, patch, autostart, setAutostart }
           <Switch on={settings.paused} onChange={(paused) => patch({ paused })} label="Pause" />
         </Row>
       </section>
+
+      <UpdateSection version={state.version} settings={settings} patch={patch} updater={updater} />
 
       <section className="glass group diag">
         <div className="diag-head">

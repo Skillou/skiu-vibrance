@@ -55,6 +55,8 @@ pub struct Settings {
     pub restore_on_exit: bool,
     pub close_to_tray: bool,
     pub theme: Theme,
+    /// Recherche une nouvelle version au demarrage.
+    pub auto_update: bool,
 }
 
 impl Default for Settings {
@@ -68,6 +70,7 @@ impl Default for Settings {
             restore_on_exit: true,
             close_to_tray: true,
             theme: Theme::Auto,
+            auto_update: true,
         }
     }
 }
@@ -292,5 +295,9 @@ mod tests {
         assert_eq!(s.desktop, 60);
         assert_eq!(s.game_default, 80);
         assert!(s.close_to_tray);
+        assert!(
+            s.auto_update,
+            "anciens reglages : mises a jour actives par defaut"
+        );
     }
 }

@@ -13,6 +13,10 @@ saturées en jeu, niveau normal sur le bureau. Inspiré de vibranceGUI, réécri
 - **Aperçu** du niveau jeu pendant 12 s, pause, thème clair / sombre / auto.
 - Zone de notification avec infobulle d'état en direct (jeu détecté, niveau appliqué), lancement
   avec Windows, restauration du niveau Bureau à la fermeture.
+- **Mises à jour automatiques** : vérification au démarrage puis toutes les 6 h, bouton « Rechercher »
+  dans les Réglages et dans le menu de la zone de notification, téléchargement avec progression,
+  installation silencieuse et redémarrage. Les mises à jour sont signées : une version non signée
+  par la clé du projet est refusée.
 - Réglages protégés : un fichier corrompu est conservé en `settings.json.bak` au lieu d'être écrasé.
 - Dialogue direct avec le pilote NVIDIA (NVAPI) : **aucune DLL tierce**, pas de dépendance 32 bits.
 
@@ -29,8 +33,16 @@ Raccourcis : `Ctrl+1/2/3` pour changer d'onglet, flèches / `PgUp` / `PgDn` / `M
 Double-clique **BUILD.bat**. À la fin, l'installateur `.exe` s'ouvre dans
 `src-tauri\target\release\bundle\nsis`. `DEV.bat` lance la version de développement.
 
-Sans rien installer : pousse un tag `vX.Y.Z` sur GitHub, le workflow **Release** construit
-l'installateur et l'attache à un brouillon de release.
+## Publier une nouvelle version
+1. Monte la version dans `package.json`, `src-tauri/Cargo.toml` et `src-tauri/tauri.conf.json`.
+2. Commit, puis `git tag v1.2.3 && git push --follow-tags`.
+3. Le workflow **Release** construit l'installateur signé, publie la release et `latest.json`.
+   Les applications installées proposent la mise à jour d'elles-mêmes.
+
+La signature utilise la clé `~/.tauri/skiu-vibrance.key` (et son mot de passe dans
+`skiu-vibrance.key.password`), à enregistrer dans les secrets du dépôt GitHub sous
+`TAURI_SIGNING_PRIVATE_KEY` et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. **Sauvegarde ces deux fichiers** :
+sans eux, impossible de publier une mise à jour acceptée par les versions déjà installées.
 
 ## Développement
 ```bash
