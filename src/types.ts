@@ -22,6 +22,15 @@ export interface Settings {
   autoUpdate: boolean;
 }
 
+/** Modifie les réglages : valeurs directes, ou calculées à partir des réglages les plus récents. */
+export type Patch = (p: Partial<Settings> | ((current: Settings) => Partial<Settings>)) => void;
+
+export interface ToastAction {
+  label: string;
+  run: () => void;
+}
+export type Toast = (message: string, action?: ToastAction) => void;
+
 export interface GpuInfo {
   available: boolean;
   name: string;

@@ -1,13 +1,13 @@
 import { CheckCircle2, Cpu, Download, Layers, Loader2, Monitor, Moon, RefreshCw, Sun, SunMoon, TriangleAlert, Tv } from "lucide-react";
 import { Segmented } from "../components/Segmented";
 import { Switch } from "../components/Switch";
-import type { AppState, Settings } from "../types";
+import type { AppState, Patch, Settings } from "../types";
 import type { Updater } from "../updater";
 
 interface Props {
   state: AppState;
   settings: Settings;
-  patch: (p: Partial<Settings>) => void;
+  patch: Patch;
   autostart: boolean;
   setAutostart: (v: boolean) => void;
   updater: Updater;
@@ -106,6 +106,7 @@ export function SettingsPage({ state, settings, patch, autostart, setAutostart, 
       <section className="glass group">
         <Row title="Apparence" desc="Clair, sombre, ou selon Windows.">
           <Segmented
+            label="Apparence"
             value={settings.theme}
             onChange={(theme) => patch({ theme })}
             options={[
@@ -117,6 +118,7 @@ export function SettingsPage({ state, settings, patch, autostart, setAutostart, 
         </Row>
         <Row title="Écrans concernés" desc="Appliquer la vibrance de jeu à tous les écrans ou seulement à celui du jeu.">
           <Segmented
+            label="Écrans concernés"
             value={settings.scope}
             onChange={(scope) => patch({ scope })}
             options={[

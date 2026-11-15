@@ -10,7 +10,9 @@ use core::mem::{size_of, transmute_copy};
 use std::ffi::CString;
 
 use skiu_core::{Dvc, GpuInfo, Scale};
-use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
+use windows_sys::Win32::System::LibraryLoader::{
+    GetProcAddress, LoadLibraryExW, LOAD_LIBRARY_SEARCH_SYSTEM32,
+};
 
 type Status = i32;
 type Handle = *mut c_void;
@@ -115,7 +117,13 @@ impl Nvapi {
                 "nvapi.dll"
             };
             let wide: Vec<u16> = dll.encode_utf16().chain(Some(0)).collect();
-            let lib = LoadLibraryW(wide.as_ptr());
+            // Uniquement depuis System32 (la ou le pilote l'installe) : une DLL du meme
+            // nom deposee a cote de l'application ne doit jamais etre chargee.
+            let lib = LoadLibraryExW(
+                wide.as_ptr(),
+                core::ptr::null_mut(),
+                LOAD_LIBRARY_SEARCH_SYSTEM32,
+            );
             if lib.is_null() {
                 return Err(format!(
                     "{dll} introuvable : aucun pilote NVIDIA installe ?"
@@ -145,7 +153,7 @@ impl Nvapi {
                 error_message: iface(qi, ID_ERROR_MESSAGE),
             };
 
-            let gpu_name = gpu_name(qi, &fns).unwrap_or_else(|| "GPU NVIDIA".to_string());
+            let gpu_name = gpu_name(qi).unwrap_or_else(|| "GPU NVIDIA".to_string());
             let mut me = Nvapi {
                 fns,
                 api: Api::Classic,
@@ -253,7 +261,7 @@ impl Nvapi {
     }
 }
 
-unsafe fn gpu_name(qi: QueryInterfaceFn, _fns: &Fns) -> Option<String> {
+unsafe fn gpu_name(qi: QueryInterfaceFn) -> Option<String> {
     let enum_gpu: EnumGpuFn = iface(qi, ID_ENUM_GPU)?;
     let name_fn: GpuNameFn = iface(qi, ID_GPU_NAME)?;
     let mut handles = [core::ptr::null_mut::<c_void>(); 64];
@@ -376,6 +384,24 @@ impl Dvc for Nvapi {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+
+    /// Lecture seule sur le vrai pilote : `cargo test -p skiu-win -- --ignored`
+    /// (necessite une carte NVIDIA, donc ignore par defaut et en CI).
+    #[test]
+    #[ignore = "necessite une carte NVIDIA"]
+    fn reads_current_level_from_real_driver() {
+        let mut nv = Nvapi::load().expect("pilote NVIDIA joignable");
+        let info = nv.info();
+        assert!(info.available && info.max_percent > info.min_percent);
+        let first = *nv.displays().first().expect("au moins un ecran");
+        let level = nv.get_percent(first).expect("niveau lisible");
+        assert!((info.min_percent..=info.max_percent).contains(&level));
     }
 }
 

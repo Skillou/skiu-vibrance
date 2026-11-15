@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import pkg from "../package.json";
 import type { AppState, Picked, Runtime, Settings, WindowInfo } from "./types";
 
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -29,7 +30,7 @@ const demo = {
     gpu: {
       available: true,
       name: "NVIDIA GeForce RTX 4070",
-      api: "NVAPI · plage étendue",
+      api: "NVAPI · DVC étendu",
       minPercent: 0,
       maxPercent: 100,
       defaultPercent: 50,
@@ -38,7 +39,7 @@ const demo = {
     },
     runtime: { previewing: false, appliedPercent: 55, activeGameId: null, activeGameName: null },
     autostart: false,
-    version: "1.2.0",
+    version: pkg.version,
   } as AppState,
 };
 

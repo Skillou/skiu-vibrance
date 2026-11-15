@@ -4,7 +4,7 @@ import { api, isTauri, win } from "./api";
 import { GamesPage } from "./pages/GamesPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { VibrancePage } from "./pages/VibrancePage";
-import type { AppState, Runtime, Settings } from "./types";
+import type { AppState, Patch, Runtime, Settings, Toast, ToastAction } from "./types";
 import { useUpdater } from "./updater";
 
 type Tab = "vibrance" | "games" | "settings";
@@ -18,17 +18,21 @@ export function App() {
     const t = new URLSearchParams(location.search).get("tab");
     return t === "games" || t === "settings" ? t : "vibrance";
   });
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  // Le contenu reste en place pendant le fondu de sortie ; `toastOn` pilote l'affichage.
+  const [toastData, setToastData] = useState<{ message: string; action?: ToastAction }>({ message: "" });
+  const [toastOn, setToastOn] = useState(false);
   const [fatal, setFatal] = useState<string | null>(null);
   const timer = useRef<number>();
   const toastTimer = useRef<number>();
   const latest = useRef<Settings | null>(null);
   const updater = useUpdater(!!settings?.autoUpdate);
 
-  const toast = useCallback((m: string) => {
-    setToastMsg(m);
+  const toast = useCallback<Toast>((message, action) => {
+    setToastData({ message, action });
+    setToastOn(true);
     window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToastMsg(null), 2200);
+    // Un message avec action (« Annuler ») reste plus longtemps à l'écran.
+    toastTimer.current = window.setTimeout(() => setToastOn(false), action ? 6000 : 2200);
   }, []);
 
   useEffect(() => {
@@ -67,8 +71,9 @@ export function App() {
     return () => mq.removeEventListener("change", apply);
   }, [settings?.theme]);
 
-  const patch = useCallback((p: Partial<Settings>) => {
-    const next = { ...latest.current!, ...p };
+  const patch = useCallback<Patch>((p) => {
+    const current = latest.current!;
+    const next = { ...current, ...(typeof p === "function" ? p(current) : p) };
     latest.current = next;
     setSettings(next);
     window.clearTimeout(timer.current);
@@ -190,7 +195,21 @@ export function App() {
         </main>
       </div>
 
-      <div className={`toast${toastMsg ? " show" : ""}`}>{toastMsg}</div>
+      <div className={`toast${toastOn ? " show" : ""}`} role="status" aria-live="polite">
+        {toastData.message}
+        {toastData.action && (
+          <button
+            tabIndex={toastOn ? 0 : -1}
+            onClick={() => {
+              toastData.action!.run();
+              window.clearTimeout(toastTimer.current);
+              setToastOn(false);
+            }}
+          >
+            {toastData.action.label}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

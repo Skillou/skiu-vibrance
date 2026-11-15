@@ -36,6 +36,8 @@ export function Slider({ value, min, max, onChange, orientation = "horizontal", 
       aria-valuemin={min}
       aria-valuemax={max}
       aria-valuenow={value}
+      aria-valuetext={`${value} %`}
+      aria-disabled={disabled || undefined}
       aria-orientation={orientation}
       tabIndex={disabled ? -1 : 0}
       onPointerDown={(e) => {

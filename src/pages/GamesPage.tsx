@@ -4,15 +4,17 @@ import { api } from "../api";
 import { AppIcon } from "../components/AppIcon";
 import { Slider } from "../components/Slider";
 import { Switch } from "../components/Switch";
-import type { Game, GpuInfo, Runtime, Settings, WindowInfo } from "../types";
+import type { Game, GpuInfo, Patch, Runtime, Settings, Toast, WindowInfo } from "../types";
 
 interface Props {
   settings: Settings;
   gpu: GpuInfo;
   runtime: Runtime;
-  patch: (p: Partial<Settings>) => void;
-  toast: (m: string) => void;
+  patch: Patch;
+  toast: Toast;
 }
+
+const sameExe = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()));
 
@@ -84,19 +86,30 @@ export function GamesPage({ settings, gpu, runtime, patch, toast }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [adding]);
 
-  const update = (id: string, p: Partial<Game>) => patch({ games: settings.games.map((g) => (g.id === id ? { ...g, ...p } : g)) });
+  const update = (id: string, p: Partial<Game>) => patch((s) => ({ games: s.games.map((g) => (g.id === id ? { ...g, ...p } : g)) }));
 
   const remove = (g: Game) => {
-    patch({ games: settings.games.filter((x) => x.id !== g.id) });
-    toast(`${g.name} retiré`);
+    const index = settings.games.findIndex((x) => x.id === g.id);
+    patch((s) => ({ games: s.games.filter((x) => x.id !== g.id) }));
+    toast(`${g.name} retiré`, {
+      label: "Annuler",
+      // Le jeu reprend sa place, avec son niveau et son nom, sauf s'il a été rajouté entre-temps.
+      run: () =>
+        patch((s) => {
+          if (s.games.some((x) => sameExe(x.exe, g.exe))) return {};
+          const games = [...s.games];
+          games.splice(Math.min(Math.max(index, 0), games.length), 0, g);
+          return { games };
+        }),
+    });
   };
 
   const add = (name: string, exe: string, path?: string | null) => {
-    if (settings.games.some((g) => g.exe.toLowerCase() === exe.toLowerCase())) {
+    if (settings.games.some((g) => sameExe(g.exe, exe))) {
       toast("Ce jeu est déjà dans la liste");
       return;
     }
-    patch({ games: [...settings.games, { id: uid(), name, exe, path: path ?? null, percent: null, enabled: true }] });
+    patch((s) => ({ games: [...s.games, { id: uid(), name, exe, path: path ?? null, percent: null, enabled: true }] }));
     setAdding(false);
     toast(`${name} ajouté`);
   };

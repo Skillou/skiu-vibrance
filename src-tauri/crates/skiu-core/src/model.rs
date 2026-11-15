@@ -80,6 +80,9 @@ impl Settings {
     pub fn sanitize(&mut self) {
         self.desktop = self.desktop.clamp(0, 100);
         self.game_default = self.game_default.clamp(0, 100);
+        for g in &mut self.games {
+            g.exe = g.exe.trim().to_string();
+        }
         let mut seen: Vec<String> = Vec::new();
         self.games.retain(|g| {
             let key = g.exe.to_lowercase();
@@ -90,16 +93,22 @@ impl Settings {
                 true
             }
         });
+        let mut ids: Vec<String> = Vec::new();
         for g in &mut self.games {
             g.percent = g.percent.map(|p| p.clamp(0, 100));
             g.name = g.name.trim().to_string();
             if g.name.is_empty() {
-                g.name = g
-                    .exe
-                    .trim_end_matches(".exe")
-                    .trim_end_matches(".EXE")
-                    .to_string();
+                g.name = strip_exe(&g.exe).to_string();
             }
+            // L'interface retrouve un jeu par son identifiant : il doit etre unique.
+            if g.id.is_empty() || ids.contains(&g.id) {
+                let mut id = g.exe.to_lowercase();
+                while ids.contains(&id) {
+                    id.push('_');
+                }
+                g.id = id;
+            }
+            ids.push(g.id.clone());
         }
     }
 
@@ -114,6 +123,16 @@ impl Settings {
         for g in &mut self.games {
             g.percent = g.percent.map(|p| p.clamp(min, max));
         }
+    }
+}
+
+/// Nom de fichier sans son extension `.exe` (insensible a la casse).
+fn strip_exe(exe: &str) -> &str {
+    match exe.len().checked_sub(4) {
+        Some(n) if n > 0 && exe.is_char_boundary(n) && exe[n..].eq_ignore_ascii_case(".exe") => {
+            &exe[..n]
+        }
+        _ => exe,
     }
 }
 
@@ -191,7 +210,6 @@ pub struct Runtime {
 pub struct Fg {
     pub exe: String,
     pub path: Option<String>,
-    pub title: String,
     /// Nom de l'ecran Windows (`\\.\DISPLAY1`).
     pub monitor: Option<String>,
 }
@@ -258,6 +276,35 @@ mod tests {
         assert_eq!((s.desktop, s.game_default), (100, 0));
         assert_eq!(s.games.len(), 1);
         assert_eq!(s.games[0].percent, Some(100));
+    }
+
+    #[test]
+    fn sanitize_repairs_names_and_ids() {
+        let g = |id: &str, name: &str, exe: &str| Game {
+            id: id.into(),
+            name: name.into(),
+            exe: exe.into(),
+            path: None,
+            percent: None,
+            enabled: true,
+        };
+        let mut s = Settings {
+            games: vec![
+                g("a", "", " Game.EXE "),
+                g("a", "Autre", "autre.exe"),
+                g("", "Vide", "vide.exe"),
+                g("x", " ", "é.exe"),
+            ],
+            ..Settings::default()
+        };
+        s.sanitize();
+        assert_eq!(s.games[0].exe, "Game.EXE");
+        assert_eq!(s.games[0].name, "Game", "extension retiree sans casse");
+        assert_eq!(s.games[3].name, "é");
+        let ids: Vec<&str> = s.games.iter().map(|g| g.id.as_str()).collect();
+        assert_eq!(ids, ["a", "autre.exe", "vide.exe", "x"]);
+        assert_eq!(strip_exe(".exe"), ".exe");
+        assert_eq!(strip_exe("exe"), "exe");
     }
 
     #[test]

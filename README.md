@@ -6,6 +6,7 @@ saturées en jeu, niveau normal sur le bureau. Inspiré de vibranceGUI, réécri
 
 ## Ce que ça fait
 - Niveau **Bureau** et niveau **Jeu par défaut**, plus un niveau personnalisé par jeu (renommable, avec la vraie icône de son `.exe`).
+  Une suppression par erreur s'annule d'un clic.
 - Détection du jeu au premier plan (toutes les 300 ms), sur l'écran du jeu seulement ou sur tous les écrans.
 - **Auto-correction** : toutes les 3 s, le niveau réel du pilote est relu et réappliqué si un jeu
   (plein écran exclusif), un changement de résolution ou le Panneau NVIDIA l'a modifié.
@@ -19,6 +20,7 @@ saturées en jeu, niveau normal sur le bureau. Inspiré de vibranceGUI, réécri
   par la clé du projet est refusée.
 - Réglages protégés : un fichier corrompu est conservé en `settings.json.bak` au lieu d'être écrasé.
 - Dialogue direct avec le pilote NVIDIA (NVAPI) : **aucune DLL tierce**, pas de dépendance 32 bits.
+  `nvapi64.dll` n'est chargée que depuis `System32`.
 
 Raccourcis : `Ctrl+1/2/3` pour changer d'onglet, flèches / `PgUp` / `PgDn` / `Maj`+flèches sur les curseurs,
 `Échap` pour fermer la fenêtre d'ajout de jeu.
@@ -33,8 +35,12 @@ Raccourcis : `Ctrl+1/2/3` pour changer d'onglet, flèches / `PgUp` / `PgDn` / `M
 Double-clique **BUILD.bat**. À la fin, l'installateur `.exe` s'ouvre dans
 `src-tauri\target\release\bundle\nsis`. `DEV.bat` lance la version de développement.
 
+Si la clé de signature (voir plus bas) est présente sur la machine, `BUILD.bat` l'utilise et produit
+aussi les fichiers de mise à jour ; sinon il construit l'installateur seul.
+
 ## Publier une nouvelle version
-1. Monte la version dans `package.json`, `src-tauri/Cargo.toml` et `src-tauri/tauri.conf.json`.
+1. Monte la version dans `package.json`, `src-tauri/tauri.conf.json` et les trois `Cargo.toml`
+   (`src-tauri/` et ses deux crates). La CI refuse des versions différentes.
 2. Commit, puis `git tag v1.2.3 && git push --follow-tags`.
 3. Le workflow **Release** construit l'installateur signé, publie la release et `latest.json`.
    Les applications installées proposent la mise à jour d'elles-mêmes.
@@ -49,10 +55,12 @@ sans eux, impossible de publier une mise à jour acceptée par les versions déj
 npm install
 npm run tauri dev                 # application complète
 npm run dev                       # interface seule dans le navigateur (mode démo)
-cd src-tauri && cargo test -p skiu-core   # tests de la logique (27 tests ; `cargo test -p skiu-win` sous Windows : 3 de plus)
+cd src-tauri && cargo test --workspace    # logique (skiu-core) + accès Windows (skiu-win)
+cargo test -p skiu-win -- --ignored       # lecture seule sur le vrai pilote (carte NVIDIA requise)
 ```
-La CI (GitHub Actions) vérifie à chaque push : build de l'interface, `cargo fmt`, tests, clippy et
-les types Windows de `skiu-win`.
+La CI (GitHub Actions) vérifie à chaque push : build de l'interface, `cargo fmt`, tests et clippy de
+la logique sous Linux, puis clippy et tests de tout le workspace sous Windows, et la cohérence des
+numéros de version.
 
 ## Limites connues
 - **NVIDIA uniquement.** Sans carte NVIDIA, l'application s'ouvre et l'indique dans le diagnostic.

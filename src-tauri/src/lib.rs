@@ -103,12 +103,14 @@ fn apply_settings(app: &AppHandle, shared: &Shared, settings: Settings, notify: 
 
 #[tauri::command]
 fn get_state(app: AppHandle, shared: State<'_, Arc<Shared>>) -> StateDto {
+    // Lecture du registre faite avant de prendre le verrou du moteur.
+    let autostart = app.autolaunch().is_enabled().unwrap_or(false);
     let e = shared.lock();
     StateDto {
         settings: e.settings().clone(),
         gpu: e.gpu(),
         runtime: e.runtime().clone(),
-        autostart: app.autolaunch().is_enabled().unwrap_or(false),
+        autostart,
         version: env!("CARGO_PKG_VERSION").to_string(),
     }
 }

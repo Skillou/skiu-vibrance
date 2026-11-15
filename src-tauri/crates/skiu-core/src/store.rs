@@ -7,8 +7,10 @@ use std::{fs, io, path::Path};
 /// conserve sous `settings.json.bak` avant d'etre remplace : la liste de jeux de
 /// l'utilisateur n'est jamais perdue silencieusement.
 pub fn load_settings(path: &Path) -> Option<Settings> {
-    let text = fs::read_to_string(path).ok()?;
-    match serde_json::from_str::<Settings>(text.trim_start_matches('\u{feff}')) {
+    // Lecture en octets : un fichier non UTF-8 est lui aussi « invalide », pas « absent ».
+    let bytes = fs::read(path).ok()?;
+    let body = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(&bytes);
+    match serde_json::from_slice::<Settings>(body) {
         Ok(mut s) => {
             s.sanitize();
             Some(s)
@@ -75,6 +77,17 @@ mod tests {
             fs::read_to_string(dir.join("settings.json.bak")).unwrap(),
             "{\"desktop\": 6"
         );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn non_utf8_file_is_backed_up() {
+        let dir = temp_dir("bin");
+        fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("settings.json");
+        fs::write(&file, [0xff, 0xfe, 0x00, 0x7b]).unwrap();
+        assert_eq!(load_settings(&file), None);
+        assert!(dir.join("settings.json.bak").exists());
         let _ = fs::remove_dir_all(dir);
     }
 

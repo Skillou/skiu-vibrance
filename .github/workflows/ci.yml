@@ -44,3 +44,43 @@ jobs:
         env:
           RUSTFLAGS: --cfg skiu_typecheck
         run: cargo check -p skiu-win
+
+  windows:
+    name: Application complete (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versions identiques partout
+        shell: pwsh
+        run: |
+          $versions = @(
+            (Get-Content package.json -Raw | ConvertFrom-Json).version
+            (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          )
+          foreach ($f in 'src-tauri/Cargo.toml', 'src-tauri/crates/skiu-core/Cargo.toml', 'src-tauri/crates/skiu-win/Cargo.toml') {
+            $versions += [regex]::Match((Get-Content $f -Raw), '(?m)^version\s*=\s*"([^"]+)"').Groups[1].Value
+          }
+          $unique = @($versions | Sort-Object -Unique)
+          if ($unique.Count -ne 1) { throw "Versions differentes : $($versions -join ', ')" }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      # Le dossier dist est requis pour compiler l'application Tauri.
+      - run: npm run build
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Clippy (tout le workspace)
+        working-directory: src-tauri
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Tests (tout le workspace)
+        working-directory: src-tauri
+        run: cargo test --workspace

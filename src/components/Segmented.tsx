@@ -6,13 +6,13 @@ interface Opt<T extends string> {
   icon?: ReactNode;
 }
 
-export function Segmented<T extends string>({ value, options, onChange }: { value: T; options: Opt<T>[]; onChange: (v: T) => void }) {
+export function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: Opt<T>[]; onChange: (v: T) => void; label: string }) {
   const idx = Math.max(0, options.findIndex((o) => o.value === value));
   return (
-    <div className="segmented" style={{ ["--n" as string]: options.length, ["--i" as string]: idx }}>
+    <div className="segmented" role="radiogroup" aria-label={label} style={{ ["--n" as string]: options.length, ["--i" as string]: idx }}>
       <i className="seg-thumb" />
       {options.map((o) => (
-        <button key={o.value} className={o.value === value ? "on" : ""} onClick={() => onChange(o.value)}>
+        <button key={o.value} role="radio" aria-checked={o.value === value} className={o.value === value ? "on" : ""} onClick={() => onChange(o.value)}>
           {o.icon}
           {o.label}
         </button>

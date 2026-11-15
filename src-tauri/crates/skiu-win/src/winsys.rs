@@ -117,7 +117,6 @@ impl Sys for WinSys {
             let path = process_path(pid)?;
             Some(Fg {
                 exe: file_name(&path),
-                title: window_title(hwnd),
                 monitor: monitor_name(hwnd),
                 path: Some(path),
             })

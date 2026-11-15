@@ -26,9 +26,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function errorText(e: unknown): string {
   const s = String(e instanceof Error ? e.message : e);
-  if (/network|dns|connect|timed? ?out|request/i.test(s)) return "Impossible de joindre le serveur de mises à jour (connexion Internet ?).";
+  // Du plus précis au plus général : « request » apparaît aussi dans les erreurs 404.
   if (/signature/i.test(s)) return "Signature de la mise à jour invalide : installation refusée par sécurité.";
-  if (/404|not found|latest\.json/i.test(s)) return "Aucune version publiée pour l'instant.";
+  if (/404|not found|latest\.json|valid release json/i.test(s)) return "Aucune version publiée pour l'instant.";
+  if (/network|dns|connect|timed? ?out|request|sending/i.test(s)) return "Impossible de joindre le serveur de mises à jour (connexion Internet ?).";
   return s;
 }
 

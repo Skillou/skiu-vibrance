@@ -1,13 +1,13 @@
 import { Eye, Gamepad2, Monitor, PauseCircle, Sparkles, TriangleAlert } from "lucide-react";
 import { AppIcon } from "../components/AppIcon";
 import { VFader } from "../components/VFader";
-import type { GpuInfo, Runtime, Settings } from "../types";
+import type { GpuInfo, Patch, Runtime, Settings } from "../types";
 
 interface Props {
   settings: Settings;
   gpu: GpuInfo;
   runtime: Runtime;
-  patch: (p: Partial<Settings>) => void;
+  patch: Patch;
   preview: (on: boolean) => void;
 }
 

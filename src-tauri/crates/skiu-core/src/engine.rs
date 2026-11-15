@@ -192,7 +192,8 @@ impl Engine {
 
     fn matching_game(&mut self, now: Instant) -> Option<GameHit> {
         if let Some(t) = self.preview_until {
-            if now >= t {
+            // La pause (y compris depuis la zone de notification) interrompt l'apercu.
+            if now >= t || self.settings.paused {
                 self.preview_until = None;
             }
         }
@@ -237,10 +238,15 @@ impl Engine {
             (Some(h), Scope::GameMonitor) => h
                 .monitor
                 .as_deref()
-                .and_then(|m| self.dvc.display_for_monitor(m)),
+                .and_then(|m| self.dvc.display_for_monitor(m))
+                // Ecran inconnu de l'enumeration : on retombe sur « tous les ecrans ».
+                .filter(|d| displays.contains(d)),
             _ => None,
         };
 
+        // Erreur de ce cycle seulement : une erreur passee ne doit pas rester affichee
+        // une fois tous les ecrans a leur niveau (ecran debranche, pilote revenu...).
+        let mut failure = None;
         for &d in &displays {
             let target = match &hit {
                 Some(h) if game_display.is_none() || game_display == Some(d) => h.percent,
@@ -250,12 +256,15 @@ impl Engine {
                 match self.dvc.set_percent(d, target) {
                     Ok(()) => {
                         self.applied.insert(d, target);
-                        self.last_error = None;
                     }
-                    Err(e) => self.last_error = Some(e),
+                    Err(e) => failure = Some(e),
                 }
             }
         }
+        self.last_error = failure;
+
+        // Niveau affiche : celui de l'ecran du jeu s'il est cible, sinon le premier ecran.
+        let shown = game_display.or_else(|| displays.first().copied());
 
         self.runtime = Runtime {
             active_game_id: hit
@@ -267,7 +276,7 @@ impl Engine {
                 .and_then(|h| h.game.as_ref())
                 .map(|g| g.name.clone()),
             previewing: self.preview_until.is_some(),
-            applied_percent: displays.first().and_then(|d| self.applied.get(d)).copied(),
+            applied_percent: shown.and_then(|d| self.applied.get(&d)).copied(),
             error: self.last_error.clone(),
         };
     }
@@ -362,7 +371,6 @@ mod tests {
         Some(Fg {
             exe: exe.into(),
             path: None,
-            title: "t".into(),
             monitor: Some(monitor.into()),
         })
     }
@@ -443,6 +451,41 @@ mod tests {
         log.lock().unwrap().fg = fg("cs2.exe", "\\\\.\\DISPLAY2");
         e.tick(Instant::now());
         assert_eq!(take(&log), vec![(2, 95)]);
+    }
+
+    #[test]
+    fn game_monitor_scope_reports_level_of_game_display() {
+        let (mut e, log) = setup(vec![game("cs2.exe", Some(95))]);
+        let mut s = e.settings().clone();
+        s.scope = Scope::GameMonitor;
+        e.update_settings(s, Instant::now());
+        log.lock().unwrap().fg = fg("cs2.exe", "\\\\.\\DISPLAY2");
+        let (rt, _) = e.tick(Instant::now());
+        assert_eq!(
+            rt.applied_percent,
+            Some(95),
+            "le niveau affiche est celui de l'ecran du jeu, pas du premier ecran"
+        );
+        log.lock().unwrap().fg = None;
+        let (rt, _) = e.tick(Instant::now());
+        assert_eq!(rt.applied_percent, Some(50));
+    }
+
+    #[test]
+    fn pausing_cancels_preview() {
+        let (mut e, log) = setup(vec![]);
+        let t = Instant::now();
+        e.set_preview(true, t);
+        take(&log);
+        let mut s = e.settings().clone();
+        s.paused = true;
+        let rt = e.update_settings(s, t);
+        assert!(!rt.previewing);
+        assert_eq!(take(&log), vec![(1, 50), (2, 50)]);
+        // La pause levee, l'apercu ne reprend pas tout seul.
+        let mut s = e.settings().clone();
+        s.paused = false;
+        assert!(!e.update_settings(s, t).previewing);
     }
 
     #[test]
@@ -638,7 +681,6 @@ mod tests {
         log.lock().unwrap().fg = Some(Fg {
             exe: "cs2.exe".into(),
             path: Some(r"D:\Steam\cs2.exe".into()),
-            title: "t".into(),
             monitor: None,
         });
         e.tick(Instant::now());
