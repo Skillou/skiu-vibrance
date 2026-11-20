@@ -9,6 +9,15 @@ import { useUpdater } from "./updater";
 
 type Tab = "vibrance" | "games" | "settings";
 
+/** Fusion à trois voies : les champs modifiés localement depuis `base` l'emportent sur `theirs`. */
+function mergeSettings(base: Settings, ours: Settings, theirs: Settings): Settings {
+  const out = { ...theirs } as Record<keyof Settings, unknown>;
+  for (const k of Object.keys(ours) as (keyof Settings)[]) {
+    if (ours[k] !== base[k]) out[k] = ours[k];
+  }
+  return out as Settings;
+}
+
 export function App() {
   const [state, setState] = useState<AppState | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -25,6 +34,8 @@ export function App() {
   const timer = useRef<number>();
   const toastTimer = useRef<number>();
   const latest = useRef<Settings | null>(null);
+  /** Derniers réglages connus du moteur (envoyés ou reçus) : base de la fusion. */
+  const synced = useRef<Settings | null>(null);
   const updater = useUpdater(!!settings?.autoUpdate);
 
   const toast = useCallback<Toast>((message, action) => {
@@ -44,13 +55,25 @@ export function App() {
         setRuntime(s.runtime);
         setAutostartState(s.autostart);
         latest.current = s.settings;
+        synced.current = s.settings;
       })
       .catch((e) => setFatal(String(e)));
     const offs: Promise<() => void>[] = [
       api.onRuntime(setRuntime),
-      api.onSettings((s) => {
-        latest.current = s;
-        setSettings(s);
+      // Réglages modifiés par le moteur (pause depuis la zone de notification, chemin appris).
+      // Une modification de l'interface pas encore envoyée n'est pas écrasée : seuls les
+      // champs qu'elle n'a pas touchés prennent la valeur du moteur.
+      api.onSettings((theirs) => {
+        const ours = latest.current;
+        const base = synced.current;
+        synced.current = theirs;
+        const next = timer.current !== undefined && ours && base ? mergeSettings(base, ours, theirs) : theirs;
+        latest.current = next;
+        setSettings(next);
+      }),
+      api.onSaveError((error) => {
+        if (error) toast("Impossible d'enregistrer les réglages, nouvelle tentative dans quelques secondes");
+        else toast("Réglages enregistrés");
       }),
     ];
     return () => {
@@ -78,7 +101,10 @@ export function App() {
     setSettings(next);
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
-      api.updateSettings(latest.current!).then(setRuntime).catch(() => toast("Impossible d'appliquer les réglages"));
+      timer.current = undefined;
+      const sent = latest.current!;
+      synced.current = sent;
+      api.updateSettings(sent).then(setRuntime).catch(() => toast("Impossible d'appliquer les réglages"));
     }, 50);
   }, [toast]);
 

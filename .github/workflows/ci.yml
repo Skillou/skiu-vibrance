@@ -54,8 +54,12 @@ jobs:
       - name: Versions identiques partout
         shell: pwsh
         run: |
+          # Table de hachage : le lockfile contient une cle vide ("") pour le paquet racine.
+          $lock = Get-Content package-lock.json -Raw | ConvertFrom-Json -AsHashtable
           $versions = @(
             (Get-Content package.json -Raw | ConvertFrom-Json).version
+            $lock['version']
+            $lock['packages']['']['version']
             (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
           )
           foreach ($f in 'src-tauri/Cargo.toml', 'src-tauri/crates/skiu-core/Cargo.toml', 'src-tauri/crates/skiu-win/Cargo.toml') {

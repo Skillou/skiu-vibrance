@@ -1,5 +1,9 @@
 use crate::model::Settings;
-use std::{fs, io, path::Path};
+use std::{
+    fs,
+    io::{self, Write},
+    path::Path,
+};
 
 /// Lit les reglages ; `None` si le fichier n'existe pas ou est illisible.
 ///
@@ -22,15 +26,24 @@ pub fn load_settings(path: &Path) -> Option<Settings> {
     }
 }
 
-/// Ecriture atomique (fichier temporaire puis renommage).
+/// Ecriture atomique et durable : fichier temporaire vide sur le disque, puis renommage.
+/// Sans `sync_all`, une coupure de courant juste apres le renommage peut laisser un
+/// fichier vide, que `load_settings` traiterait comme corrompu.
 pub fn save_settings(path: &Path, settings: &Settings) -> io::Result<()> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)?;
     }
     let tmp = path.with_extension("json.tmp");
     let json = serde_json::to_string_pretty(settings).map_err(io::Error::other)?;
-    fs::write(&tmp, json)?;
-    fs::rename(&tmp, path)
+    let written = fs::File::create(&tmp).and_then(|mut f| {
+        f.write_all(json.as_bytes())?;
+        f.sync_all()
+    });
+    if let Err(e) = written.and_then(|()| fs::rename(&tmp, path)) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e);
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -88,6 +101,24 @@ mod tests {
         fs::write(&file, [0xff, 0xfe, 0x00, 0x7b]).unwrap();
         assert_eq!(load_settings(&file), None);
         assert!(dir.join("settings.json.bak").exists());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn failed_save_leaves_previous_file_and_no_temp() {
+        let dir = temp_dir("fail");
+        fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("settings.json");
+        let s = Settings::default();
+        save_settings(&file, &s).unwrap();
+        // Un dossier a la place du fichier temporaire : l'ecriture echoue.
+        fs::create_dir_all(dir.join("settings.json.tmp")).unwrap();
+        let changed = Settings {
+            desktop: 77,
+            ..Settings::default()
+        };
+        assert!(save_settings(&file, &changed).is_err());
+        assert_eq!(load_settings(&file), Some(s), "ancien fichier intact");
         let _ = fs::remove_dir_all(dir);
     }
 

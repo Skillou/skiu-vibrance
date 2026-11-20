@@ -110,6 +110,11 @@ export const api = {
     if (!isTauri) return () => {};
     return listen<Settings>("settings", (e) => cb(e.payload));
   },
+  /** Échec (message) ou retour à la normale (null) de l'enregistrement des réglages. */
+  async onSaveError(cb: (error: string | null) => void): Promise<() => void> {
+    if (!isTauri) return () => {};
+    return listen<string | null>("save-error", (e) => cb(e.payload));
+  },
 };
 
 export const win = {

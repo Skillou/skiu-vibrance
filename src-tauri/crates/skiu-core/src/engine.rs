@@ -12,6 +12,9 @@ use crate::{
 pub const PREVIEW_MAX: Duration = Duration::from_secs(12);
 /// Delai sans modification avant d'ecrire les reglages sur le disque.
 pub const SAVE_DEBOUNCE: Duration = Duration::from_millis(600);
+/// Delai avant une nouvelle tentative quand l'ecriture des reglages a echoue
+/// (fichier verrouille par un antivirus, disque plein...).
+pub const SAVE_RETRY: Duration = Duration::from_secs(5);
 /// Intervalle de verification du niveau reel du pilote : certains jeux (plein ecran
 /// exclusif) ou le pilote lui-meme remettent la vibrance a zero dans notre dos.
 pub const RESYNC_EVERY: Duration = Duration::from_secs(3);
@@ -149,6 +152,15 @@ impl Engine {
                 Some(self.settings.clone())
             }
             _ => None,
+        }
+    }
+
+    /// L'ecriture des reglages renvoyes par `take_dirty` a echoue : ils restent a
+    /// enregistrer et une nouvelle tentative aura lieu apres `SAVE_RETRY`
+    /// (plus tot si l'utilisateur modifie encore un reglage).
+    pub fn save_failed(&mut self, now: Instant) {
+        if self.dirty_at.is_none() {
+            self.dirty_at = Some(now + SAVE_RETRY - SAVE_DEBOUNCE);
         }
     }
 
@@ -567,6 +579,39 @@ mod tests {
         assert!(e.take_dirty(t + Duration::from_millis(100)).is_none());
         assert!(e.take_dirty(t + SAVE_DEBOUNCE).is_some());
         assert!(e.take_dirty(t + SAVE_DEBOUNCE * 3).is_none());
+    }
+
+    #[test]
+    fn failed_save_is_retried_later() {
+        let (mut e, _log) = setup(vec![]);
+        let t = Instant::now();
+        let s = e.settings().clone();
+        e.update_settings(s, t);
+        let t = t + SAVE_DEBOUNCE;
+        assert!(e.take_dirty(t).is_some());
+        e.save_failed(t);
+        assert!(
+            e.take_dirty(t + SAVE_RETRY - Duration::from_millis(1))
+                .is_none(),
+            "pas de nouvelle tentative a chaque cycle"
+        );
+        assert!(e.take_dirty(t + SAVE_RETRY).is_some());
+        e.save_failed(t + SAVE_RETRY);
+        assert!(e.flush().is_some(), "a la fermeture, on retente aussi");
+    }
+
+    #[test]
+    fn change_after_failed_save_keeps_normal_debounce() {
+        let (mut e, _log) = setup(vec![]);
+        let t = Instant::now();
+        let s = e.settings().clone();
+        e.update_settings(s.clone(), t);
+        let t = t + SAVE_DEBOUNCE;
+        assert!(e.take_dirty(t).is_some());
+        // Modification pendant l'ecriture qui va echouer : elle garde son propre delai.
+        e.update_settings(s, t);
+        e.save_failed(t);
+        assert!(e.take_dirty(t + SAVE_DEBOUNCE).is_some());
     }
 
     #[test]

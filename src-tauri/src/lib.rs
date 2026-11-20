@@ -1,6 +1,9 @@
 use std::{
     path::PathBuf,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, MutexGuard,
+    },
     time::{Duration, Instant},
 };
 
@@ -21,12 +24,37 @@ const POLL_EVERY: Duration = Duration::from_millis(300);
 struct Shared {
     engine: Mutex<Engine>,
     path: PathBuf,
+    /// Serialise les ecritures (surveillance et fermeture partagent le fichier temporaire).
+    save_lock: Mutex<()>,
+    /// Derniere ecriture en echec : l'interface n'est prevenue qu'au debut d'une serie d'echecs.
+    save_failing: AtomicBool,
     pause_item: Mutex<Option<CheckMenuItem<tauri::Wry>>>,
 }
 
 impl Shared {
     fn lock(&self) -> MutexGuard<'_, Engine> {
         self.engine.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// Enregistre les reglages ; en cas d'echec, le moteur les garde a enregistrer.
+    fn save(&self, app: &AppHandle, settings: &Settings) {
+        let result = {
+            let _guard = self.save_lock.lock().unwrap_or_else(|p| p.into_inner());
+            save_settings(&self.path, settings)
+        };
+        match result {
+            Ok(()) => {
+                if self.save_failing.swap(false, Ordering::Relaxed) {
+                    let _ = app.emit("save-error", None::<String>);
+                }
+            }
+            Err(e) => {
+                self.lock().save_failed(Instant::now());
+                if !self.save_failing.swap(true, Ordering::Relaxed) {
+                    let _ = app.emit("save-error", Some(e.to_string()));
+                }
+            }
+        }
     }
 }
 
@@ -204,7 +232,7 @@ fn spawn_monitor(app: AppHandle, shared: Arc<Shared>) {
             refresh_tray(&app, &runtime, paused);
         }
         if let Some(s) = to_save {
-            let _ = save_settings(&shared.path, &s);
+            shared.save(&app, &s);
         }
         std::thread::sleep(POLL_EVERY);
     });
@@ -296,6 +324,8 @@ pub fn run() {
             let shared = Arc::new(Shared {
                 engine: Mutex::new(engine),
                 path,
+                save_lock: Mutex::new(()),
+                save_failing: AtomicBool::new(false),
                 pause_item: Mutex::new(None),
             });
             app.manage(shared.clone());
@@ -333,11 +363,11 @@ pub fn run() {
         .run(|app, event| {
             if let RunEvent::Exit = event {
                 if let Some(shared) = app.try_state::<Arc<Shared>>() {
-                    let mut e = shared.lock();
-                    if let Some(s) = e.flush() {
-                        let _ = save_settings(&shared.path, &s);
+                    let pending = shared.lock().flush();
+                    if let Some(s) = pending {
+                        shared.save(app, &s);
                     }
-                    e.restore();
+                    shared.lock().restore();
                 }
             }
         });

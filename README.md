@@ -18,7 +18,8 @@ saturées en jeu, niveau normal sur le bureau. Inspiré de vibranceGUI, réécri
   dans les Réglages et dans le menu de la zone de notification, téléchargement avec progression,
   installation silencieuse et redémarrage. Les mises à jour sont signées : une version non signée
   par la clé du projet est refusée.
-- Réglages protégés : un fichier corrompu est conservé en `settings.json.bak` au lieu d'être écrasé.
+- Réglages protégés : un fichier corrompu est conservé en `settings.json.bak` au lieu d'être écrasé
+  Une écriture impossible (fichier verrouillé, disque plein) est signalée et retentée automatiquement.
 - Dialogue direct avec le pilote NVIDIA (NVAPI) : **aucune DLL tierce**, pas de dépendance 32 bits.
   `nvapi64.dll` n'est chargée que depuis `System32`.
 
@@ -39,8 +40,9 @@ Si la clé de signature (voir plus bas) est présente sur la machine, `BUILD.bat
 aussi les fichiers de mise à jour ; sinon il construit l'installateur seul.
 
 ## Publier une nouvelle version
-1. Monte la version dans `package.json`, `src-tauri/tauri.conf.json` et les trois `Cargo.toml`
-   (`src-tauri/` et ses deux crates). La CI refuse des versions différentes.
+1. Monte la version dans `package.json` (puis `npm install` pour `package-lock.json`),
+   `src-tauri/tauri.conf.json` et les trois `Cargo.toml` (`src-tauri/` et ses deux crates).
+   La CI refuse des versions différentes.
 2. Commit, puis `git tag v1.2.3 && git push --follow-tags`.
 3. Le workflow **Release** construit l'installateur signé, publie la release et `latest.json`.
    Les applications installées proposent la mise à jour d'elles-mêmes.

@@ -8,7 +8,7 @@ mod model;
 mod store;
 mod traits;
 
-pub use engine::{Engine, PREVIEW_MAX, RESYNC_EVERY, SAVE_DEBOUNCE};
+pub use engine::{Engine, PREVIEW_MAX, RESYNC_EVERY, SAVE_DEBOUNCE, SAVE_RETRY};
 pub use model::*;
 pub use store::{load_settings, save_settings};
 pub use traits::{Dvc, Sys};
